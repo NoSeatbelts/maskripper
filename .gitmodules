@@ -1,0 +1,6 @@
+[submodule "dlib"]
+	path = dlib
+	url = https://github.com/noseatbelts/dlib
+[submodule "htslib"]
+	path = htslib
+	url = https://github.com/samtools/htslib
