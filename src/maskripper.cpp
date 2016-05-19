@@ -2,10 +2,11 @@
 #include "dlib/bam_util.h"
 
 int usage(char **argv, int retcode=EXIT_FAILURE) {
-    fprintf(stderr, "maskripper <opts> in.bam out.bam\n"
+    fprintf(stderr, "MASKRIPPER version %s.\n"
+                    "Usage: maskripper <opts> in.bam out.bam\n"
                     "Flags:\n-m: Minimum trimmed read length. Default: 0.\n"
                     "-l: output compression level. Default: 6.\n"
-                    "Use - for stdin or stdout.\n");
+                    "Use - for stdin or stdout.\n", MASKRIPPER_VERSION);
     return retcode;
 }
 struct opts_t {
@@ -28,6 +29,15 @@ void trim_array_tags(opts_t *op, bam1_t *b) {
     return;
 }
 
+
+static inline void bam_seq_print_offset(bam1_t *b) {
+    char tmpstr[500];
+    for(int i = 0; i < (bam_get_aux(b) - (uint8_t *)bam_get_qname(b)) - b->core.l_qseq; ++i) {
+        dlib::seq_nt16_cpy(tmpstr, (uint8_t *)bam_get_qname(b) + i, b->core.l_qseq, b->core.flag & BAM_FREVERSE);
+        fprintf(stderr, "tmpstr: %s.\n", tmpstr);
+    }
+}
+
 static int trim_ns(bam1_t *b, void *data) {
     opts_t *op((opts_t *)data);
     int tmp;
@@ -37,7 +47,7 @@ static int trim_ns(bam1_t *b, void *data) {
     op->resize(b->l_data); // Make sure it's big enough to hold everything.
     memcpy(op->data, b->data, b->core.l_qname);
 
-    // Get #Ns at the beginning 
+    // Get #Ns at the beginning
     for(tmp = 0; bam_seqi(seq, tmp) == dlib::htseq::HTS_N; ++tmp);
     const int n_start(tmp);
 
@@ -53,29 +63,36 @@ static int trim_ns(bam1_t *b, void *data) {
     if(final_len < op->min_trimmed_len) // Too short.
         return 1;
 
-    if((tmp = bam_cigar_oplen(cigar[b->core.n_cigar - 1]) - n_end) == 0) {
-        --op->n_cigar;
-    } else {
-        cigar[b->core.n_cigar - 1] = bam_cigar_gen(tmp, BAM_CSOFT_CLIP);
+    if(n_end) {
+        if((tmp = bam_cigar_oplen(cigar[b->core.n_cigar - 1]) - n_end) == 0) {
+            LOG_DEBUG("Entire cigar operation is the softclip. Decrease the number of new cigar operations.\n");
+            --op->n_cigar;
+        } else {
+            LOG_DEBUG("Updating second cigar operation in-place.\n");
+            cigar[b->core.n_cigar - 1] = bam_cigar_gen(tmp, BAM_CSOFT_CLIP);
+        }
     }
 
-    // Get new n_cigar. 
+    // Get new n_cigar.
     if((tmp = bam_cigar_oplen(*cigar) - n_start) == 0) {
         --op->n_cigar;
         memcpy(op->data + b->core.l_qname, cigar + 1, op->n_cigar << 2); // << 2 for 4 bit per cigar op
     } else {
-        *cigar = bam_cigar_gen(tmp, BAM_CSOFT_CLIP);
+        if(n_start) *cigar = bam_cigar_gen(tmp, BAM_CSOFT_CLIP);
         memcpy(op->data + b->core.l_qname, cigar, op->n_cigar << 2);
     }
     uint8_t *opseq(op->data + b->core.l_qname + (op->n_cigar << 2));
-    for(tmp = 0; tmp < final_len >> 1; ++tmp)
+    for(tmp = 0; tmp < final_len >> 1; ++tmp) {
         opseq[tmp] = ((bam_seqi(seq, tmp * 2 + n_start) << 2) | (bam_seqi(seq, tmp * 2 + n_start + 1)));
+    }
+
 
     // Copy in qual and all of aux.
     tmp = bam_get_l_aux(b);
     memcpy(opseq + ((final_len + 1) >> 1), bam_get_qual(b) + n_start, final_len + tmp);
     // Switch data strings
     std::swap(op->data, b->data);
+    bam_seq_print_offset(b);
     b->core.n_cigar = op->n_cigar;
     b->l_data = b->core.l_qname + (op->n_cigar << 2) + ((final_len + 1) >> 1) + final_len + tmp;
     trim_array_tags(op, b);
