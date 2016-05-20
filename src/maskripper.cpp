@@ -104,9 +104,10 @@ static int trim_ns(bam1_t *b, void *data) {
     if(n_start)
         bam_aux_append(b, "NS", 'i', sizeof(int), (uint8_t *)&n_start);
     const uint32_t *pvar = (uint32_t *)dlib::array_tag(b, "PV");
-    std::vector<uint32_t>pvals(pvar + n_start, pvar + final_len + n_start);
+    tmp = b->core.flag & BAM_FREVERSE ? n_end: n_start;
+    std::vector<uint32_t>pvals(pvar + tmp, pvar + final_len + tmp);
     const uint32_t *fvar = (uint32_t *)dlib::array_tag(b, "FA");
-    std::vector<uint32_t>fvals(fvar + n_start, fvar + final_len + n_start);
+    std::vector<uint32_t>fvals(fvar + tmp, fvar + final_len + tmp);
     bam_aux_del(b, bam_aux_get(b, "PV"));
     bam_aux_del(b, bam_aux_get(b, "FA"));
     dlib::bam_aux_array_append(b, "PV", 'I', sizeof(uint32_t), final_len, (uint8_t *)pvals.data());
