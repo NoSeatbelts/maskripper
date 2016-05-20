@@ -179,8 +179,8 @@ static int trim_ns(bam1_t *b, void *data) {
     memcpy(bam_get_aux(b), aux.data(), aux.size());
     b->l_data = (bam_get_aux(b) - b->data) + aux.size();
     //trim_array_tags(b, n_start, n_end, final_len);
-    bam_aux_append(b, "NE", 'i', sizeof(int), (uint8_t *)&n_end);
-    bam_aux_append(b, "NS", 'i', sizeof(int), (uint8_t *)&n_start);
+    //bam_aux_append(b, "NE", 'i', sizeof(int), (uint8_t *)&n_end);
+    //bam_aux_append(b, "NS", 'i', sizeof(int), (uint8_t *)&n_start);
     return 0;
 }
 
