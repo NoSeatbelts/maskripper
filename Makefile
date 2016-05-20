@@ -34,7 +34,7 @@ DLIB_OBJS = $(DLIB_SRC:.c=.o)
 
 .PHONY: all clean install mostlyclean update_dlib
 
-all: update_dlib libhts.a maskripper
+all: update_dlib libhts.a maskripper maskripper_db
 
 install: all
 	$(INSTALL) maskripper $(bindir)/$(binprefix)maskripper

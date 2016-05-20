@@ -29,15 +29,6 @@ void trim_array_tags(opts_t *op, bam1_t *b) {
     return;
 }
 
-
-static inline void bam_seq_print_offset(bam1_t *b) {
-    char tmpstr[500];
-    for(int i = 0; i < (bam_get_aux(b) - (uint8_t *)bam_get_qname(b)) - b->core.l_qseq; ++i) {
-        dlib::seq_nt16_cpy(tmpstr, (uint8_t *)bam_get_qname(b) + i, b->core.l_qseq, b->core.flag & BAM_FREVERSE);
-        fprintf(stderr, "tmpstr: %s.\n", tmpstr);
-    }
-}
-
 static int trim_ns(bam1_t *b, void *data) {
     opts_t *op((opts_t *)data);
     int tmp;
@@ -65,10 +56,10 @@ static int trim_ns(bam1_t *b, void *data) {
 
     if(n_end) {
         if((tmp = bam_cigar_oplen(cigar[b->core.n_cigar - 1]) - n_end) == 0) {
-            LOG_DEBUG("Entire cigar operation is the softclip. Decrease the number of new cigar operations.\n");
+            //LOG_DEBUG("Entire cigar operation is the softclip. Decrease the number of new cigar operations.\n");
             --op->n_cigar;
         } else {
-            LOG_DEBUG("Updating second cigar operation in-place.\n");
+            //LOG_DEBUG("Updating second cigar operation in-place.\n");
             cigar[b->core.n_cigar - 1] = bam_cigar_gen(tmp, BAM_CSOFT_CLIP);
         }
     }
@@ -81,18 +72,25 @@ static int trim_ns(bam1_t *b, void *data) {
         if(n_start) *cigar = bam_cigar_gen(tmp, BAM_CSOFT_CLIP);
         memcpy(op->data + b->core.l_qname, cigar, op->n_cigar << 2);
     }
-    uint8_t *opseq(op->data + b->core.l_qname + (op->n_cigar << 2));
+    uint8_t *opseq(op->data + b->core.l_qname + (op->n_cigar << 2)); // Pointer to the seq region of new data field.
     for(tmp = 0; tmp < final_len >> 1; ++tmp) {
-        opseq[tmp] = ((bam_seqi(seq, tmp * 2 + n_start) << 2) | (bam_seqi(seq, tmp * 2 + n_start + 1)));
+        opseq[tmp] = (bam_seqi(seq, ((tmp << 1) + n_start)) << 4) | (bam_seqi(seq, (tmp << 1) + n_start + 1));
+        assert(bam_seqi(opseq, tmp * 2) == bam_seqi(seq, (2 * tmp + n_start)));
     }
-
+#if 0
+    char tmpbuf[300];
+    for(tmp = 0; tmp < final_len; ++tmp) {
+        tmpbuf[tmp] = seq_nt16_str[bam_seqi(opseq, tmp)];
+    }
+    tmpbuf[tmp] = '\0';
+    assert(strcmp(tmpbuf, "ANNCNNNGNNNNTNNNNCNNGGNNNNNNNNNCNNNNCNNNNNNNNAAAANNTNNNAAAAAAAAAAGAGAGAGGGAGAGAGACTATACACAGGCACCACCACATTTGGCTAATTTTT") == 0);
+#endif
 
     // Copy in qual and all of aux.
     tmp = bam_get_l_aux(b);
     memcpy(opseq + ((final_len + 1) >> 1), bam_get_qual(b) + n_start, final_len + tmp);
     // Switch data strings
     std::swap(op->data, b->data);
-    bam_seq_print_offset(b);
     b->core.n_cigar = op->n_cigar;
     b->l_data = b->core.l_qname + (op->n_cigar << 2) + ((final_len + 1) >> 1) + final_len + tmp;
     trim_array_tags(op, b);
