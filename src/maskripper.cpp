@@ -179,8 +179,18 @@ static int trim_ns(bam1_t *b, void *data) {
     memcpy(bam_get_aux(b), aux.data(), aux.size());
     b->l_data = (bam_get_aux(b) - b->data) + aux.size();
     //trim_array_tags(b, n_start, n_end, final_len);
-    //bam_aux_append(b, "NE", 'i', sizeof(int), (uint8_t *)&n_end);
-    //bam_aux_append(b, "NS", 'i', sizeof(int), (uint8_t *)&n_start);
+    if(n_end)
+        bam_aux_append(b, "NE", 'i', sizeof(int), (uint8_t *)&n_end);
+    if(n_start)
+        bam_aux_append(b, "NS", 'i', sizeof(int), (uint8_t *)&n_start);
+    const uint32_t *pvar = (uint32_t *)dlib::array_tag(b, "PV");
+    std::vector<uint32_t>pvals(pvar + n_start, pvar + final_len + n_start);
+    const uint32_t *fvar = (uint32_t *)dlib::array_tag(b, "FA");
+    std::vector<uint32_t>fvals(fvar + n_start, fvar + final_len + n_start);
+    bam_aux_del(b, bam_aux_get(b, "PV"));
+    bam_aux_del(b, bam_aux_get(b, "FA"));
+    dlib::bam_aux_array_append(b, "PV", 'I', sizeof(uint32_t), final_len, (uint8_t *)pvals.data());
+    dlib::bam_aux_array_append(b, "FA", 'I', sizeof(uint32_t), final_len, (uint8_t *)fvals.data());
     return 0;
 }
 
