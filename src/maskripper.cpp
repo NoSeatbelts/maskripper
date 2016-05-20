@@ -11,6 +11,7 @@ int usage(char **argv, int retcode=EXIT_FAILURE) {
                     "Use - for stdin or stdout.\n", MASKRIPPER_VERSION);
     return retcode;
 }
+
 struct opts_t {
     uint8_t *data;
     uint32_t l_data:16;
@@ -99,10 +100,8 @@ static int trim_ns(bam1_t *b, void *data) {
     memcpy(bam_get_aux(b), aux.data(), aux.size());
     b->l_data = (bam_get_aux(b) - b->data) + aux.size();
     //trim_array_tags(b, n_start, n_end, final_len);
-    if(n_end)
-        bam_aux_append(b, "NE", 'i', sizeof(int), (uint8_t *)&n_end);
-    if(n_start)
-        bam_aux_append(b, "NS", 'i', sizeof(int), (uint8_t *)&n_start);
+    if(n_end) bam_aux_append(b, "NE", 'i', sizeof(int), (uint8_t *)&n_end);
+    if(n_start) bam_aux_append(b, "NS", 'i', sizeof(int), (uint8_t *)&n_start);
     const uint32_t *pvar = (uint32_t *)dlib::array_tag(b, "PV");
     tmp = b->core.flag & BAM_FREVERSE ? n_end: n_start;
     std::vector<uint32_t>pvals(pvar + tmp, pvar + final_len + tmp);
@@ -141,18 +140,15 @@ int main(int argc, char *argv[]) {
         case 'h': case '?': return usage(argv, EXIT_SUCCESS);
         }
     }
-    if(argc - 2 != optind)
-        LOG_EXIT("Required: precisely two positional arguments (in bam, out bam).\n");
 
-    LOG_DEBUG("ZOUNDS\n");
-    // Actually this function. You can't really apply a null function....
+    if(argc - 2 != optind) LOG_EXIT("Required: precisely two positional arguments (in bam, out bam).\n");
+
     dlib::BamHandle inHandle(argv[optind]);
     dlib::BamHandle outHandle(argv[optind + 1], inHandle.header, out_mode);
-    if(is_se) {
+    if(is_se)
         dlib::abstract_single_iter(inHandle.fp, inHandle.header, outHandle.fp,
                                    &trim_ns, (void *)&opts);
-    } else {
-        dlib::abstract_pair_iter(inHandle.fp, inHandle.header, outHandle.fp, &pe_trim_ns, (void *)&opts);
-    }
+    else dlib::abstract_pair_iter(inHandle.fp, inHandle.header, outHandle.fp,
+                                  &pe_trim_ns, (void *)&opts);
     return EXIT_SUCCESS;
 }
