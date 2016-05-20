@@ -25,11 +25,30 @@ struct opts_t {
     }
 };
 
-void trim_array_tags(opts_t *op, bam1_t *b) {
-    return;
+
+template<typename T>
+inline void trim_array_tag(bam1_t *b, const char *tag, const int n_start, const int n_end, const int final_len) {
+    T tmp[300];
+    if(final_len == b->core.l_qseq) return;
+    LOG_DEBUG("Trying for tag %s.\n", tag);
+    uint8_t *data = bam_aux_get(b, tag);
+    LOG_DEBUG("n_start, final_len: %i, %i.\n", n_start, final_len);
+    memcpy(tmp, data + 8 +  n_start * sizeof(T), final_len * sizeof(T)); // 8 for the tag, len, type.
+    bam_aux_del(b, data);
+    assert((data = bam_aux_get(b, tag)) == nullptr);
+    dlib::bam_aux_array_append(b, tag, 'I', sizeof(uint32_t), final_len, (uint8_t *)tmp);
 }
 
+inline void trim_array_tags(bam1_t *b, const int n_start, const int n_end, const int final_len) {
+    LOG_DEBUG("Getting PV.\n");
+    trim_array_tag<uint32_t>(b, "PV", n_start, n_end, final_len);
+    LOG_DEBUG("Getting FA.\n");
+    trim_array_tag<uint32_t>(b, "FA", n_start, n_end, final_len);
+}
+
+
 static int trim_ns(bam1_t *b, void *data) {
+    // Currently passes all reads to keep balanced pairs. TODO: rewrite for pairs of reads and filter if both fail.
     opts_t *op((opts_t *)data);
     int tmp;
     uint8_t *const seq(bam_get_seq(b));
@@ -43,7 +62,7 @@ static int trim_ns(bam1_t *b, void *data) {
     const int n_start(tmp);
 
     if(tmp == b->core.l_qseq - 1) // all bases are N -- garbage read
-         return 1;
+         return 0; // Currently outputting to avoid 
 
     // Get #Ns at the end
     for(tmp = b->core.l_qseq - 1; bam_seqi(seq, tmp) == dlib::htseq::HTS_N; --tmp);
@@ -52,7 +71,7 @@ static int trim_ns(bam1_t *b, void *data) {
     // Get new length for read
     const int final_len(b->core.l_qseq - n_end - n_start);
     if(final_len < op->min_trimmed_len) // Too short.
-        return 1;
+        return 0;
 
     if(n_end) {
         if((tmp = bam_cigar_oplen(cigar[b->core.n_cigar - 1]) - n_end) == 0) {
@@ -93,8 +112,10 @@ static int trim_ns(bam1_t *b, void *data) {
     std::swap(op->data, b->data);
     b->core.n_cigar = op->n_cigar;
     b->l_data = b->core.l_qname + (op->n_cigar << 2) + ((final_len + 1) >> 1) + final_len + tmp;
-    trim_array_tags(op, b);
+    //trim_array_tags(b, n_start, n_end, final_len);
     b->core.l_qseq = final_len;
+    //bam_aux_append(b, "NE", 'i', sizeof(int), (uint8_t *)&n_end);
+    //bam_aux_append(b, "NS", 'i', sizeof(int), (uint8_t *)&n_start);
     return 0;
 }
 
