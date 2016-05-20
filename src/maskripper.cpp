@@ -7,6 +7,7 @@ int usage(char **argv, int retcode=EXIT_FAILURE) {
                     "Flags:\n-m: Minimum trimmed read length. Default: 0.\n"
                     "-l: output compression level. Default: 6.\n"
                     "-S: output in sam format.\n"
+                    "-s: perform single-end analyisis. This option results in imbalanced pairs on paired-end data.\n"
                     "Use - for stdin or stdout.\n", MASKRIPPER_VERSION);
     return retcode;
 }
@@ -26,87 +27,6 @@ struct opts_t {
     }
 };
 
-static inline int aux_type2size(uint8_t type)
-{
-    switch (type) {
-    case 'A': case 'c': case 'C':
-        return 1;
-    case 's': case 'S':
-        return 2;
-    case 'i': case 'I': case 'f':
-        return 4;
-    case 'd':
-        return 8;
-    case 'Z': case 'H': case 'B':
-        return type;
-    default:
-        return 0;
-    }
-}
-
-
-static inline uint8_t *skip_aux(uint8_t *s)
-{
-    int size = aux_type2size(*s); ++s; // skip type
-    uint32_t n;
-    switch (size) {
-    case 'Z':
-    case 'H':
-        while (*s) ++s;
-        return s + 1;
-    case 'B':
-        size = aux_type2size(*s); ++s;
-        memcpy(&n, s, 4); s += 4;
-        return s + size * n;
-    case 0:
-        abort();
-        break;
-    default:
-        return s + size;
-    }
-}
-
-uint8_t *aux_aux_get(uint8_t *s, const char tag[2], uint8_t *end)
-{
-    LOG_DEBUG("Trying\n");
-    int y = tag[0]<<8 | tag[1];
-    while (s < end) {
-        int x = (int)s[0]<<8 | s[1];
-        s += 2;
-        if (x == y) return s;
-        s = skip_aux(s);
-    }
-    return 0;
-}
-
-
-template<typename T>
-inline void trim_array_tag(bam1_t *b, const char *tag, const int n_start, const int n_end, const int final_len) {
-    T tmp[300];
-    if((n_start + n_end) == 0) return;
-    LOG_DEBUG("Trying for tag %s.\n", tag);
-    uint8_t *data = bam_aux_get(b, tag);
-    uint8_t *td = data + 4;
-    LOG_DEBUG("Len: %i.\n", *(int *)td);
-    LOG_DEBUG("Type: %c, %i.\n", (char)*(data + 3), *(data + 3));
-    LOG_DEBUG("n_start, final_len: %i, %i.\n", n_start, final_len);
-    for(int i = 0; i < n_start + n_end + final_len; ++i) fprintf(stderr, ",%u", ((int *)(data + 8))[i]);
-    memcpy(tmp, data + 8 + n_start * sizeof(T), final_len * sizeof(T)); // 8 for the tag, len, type.
-    LOG_DEBUG("Old len: %i. New len: %i.\n", final_len + n_start + n_end, final_len);
-    bam_aux_del(b, data);
-    assert((data = bam_aux_get(b, tag)) == nullptr);
-    for(int i = 0; i < final_len; ++i) fprintf(stderr, ",%u", tmp[i]);
-    dlib::bam_aux_array_append(b, tag, 'I', sizeof(uint32_t), final_len, (uint8_t *)tmp);
-}
-
-inline void trim_array_tags(bam1_t *b, const int n_start, const int n_end, const int final_len) {
-    LOG_DEBUG("Getting PV.\n");
-    trim_array_tag<uint32_t>(b, "PV", n_start, n_end, final_len);
-    LOG_DEBUG("Getting FA.\n");
-    trim_array_tag<uint32_t>(b, "FA", n_start, n_end, final_len);
-}
-
-
 static int trim_ns(bam1_t *b, void *data) {
     // Currently passes all reads to keep balanced pairs. TODO: rewrite for pairs of reads and filter if both fail.
     opts_t *op((opts_t *)data);
@@ -124,7 +44,7 @@ static int trim_ns(bam1_t *b, void *data) {
     const int n_start(tmp);
 
     if(tmp == b->core.l_qseq - 1) // all bases are N -- garbage read
-         return 0; // Currently outputting to avoid 
+         return 1; // Currently outputting to avoid 
 
     // Get #Ns at the end
     for(tmp = b->core.l_qseq - 1; bam_seqi(seq, tmp) == dlib::htseq::HTS_N; --tmp);
@@ -133,7 +53,7 @@ static int trim_ns(bam1_t *b, void *data) {
     // Get new length for read
     const int final_len(b->core.l_qseq - n_end - n_start);
     if(final_len < op->min_trimmed_len) // Too short.
-        return 0;
+        return 1;
 
     if(n_end) {
         if((tmp = bam_cigar_oplen(cigar[b->core.n_cigar - 1]) - n_end) == 0) {
@@ -194,6 +114,12 @@ static int trim_ns(bam1_t *b, void *data) {
     return 0;
 }
 
+static int pe_trim_ns(bam1_t *b1, bam1_t *b2, void *aux)
+{
+    return trim_ns(b1, aux) && trim_ns(b2, aux);
+}
+
+
 int main(int argc, char *argv[]) {
     if(argc < 3)
         return usage(argv);
@@ -202,12 +128,14 @@ int main(int argc, char *argv[]) {
         return usage(argv, EXIT_SUCCESS);
 
     int c;
+    int is_se{0};
     char out_mode[4] = "wb";
     opts_t opts{0};
-    while((c = getopt(argc, argv, "m:l:h?S")) > -1) {
+    while((c = getopt(argc, argv, "m:l:h?sS")) > -1) {
         switch(c) {
         case 'm': opts.min_trimmed_len = (uint32_t)atoi(optarg); break;
         case 'l': out_mode[2] = atoi(optarg) % 10 + '0'; break;
+        case 's': is_se = 1; break;
         case 'S': sprintf(out_mode, "w"); break;
         case 'h': case '?': return usage(argv, EXIT_SUCCESS);
         }
@@ -219,7 +147,11 @@ int main(int argc, char *argv[]) {
     // Actually this function. You can't really apply a null function....
     dlib::BamHandle inHandle(argv[optind]);
     dlib::BamHandle outHandle(argv[optind + 1], inHandle.header, out_mode);
-    dlib::abstract_single_iter(inHandle.fp, inHandle.header, outHandle.fp,
-                               &trim_ns, (void *)&opts);
+    if(is_se) {
+        dlib::abstract_single_iter(inHandle.fp, inHandle.header, outHandle.fp,
+                                   &trim_ns, (void *)&opts);
+    } else {
+        dlib::abstract_pair_iter(inHandle.fp, inHandle.header, outHandle.fp, &pe_trim_ns, (void *)&opts);
+    }
     return EXIT_SUCCESS;
 }
