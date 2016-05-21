@@ -75,19 +75,8 @@ static int trim_ns(bam1_t *b, void *data) {
         memcpy(op->data + b->core.l_qname, cigar, op->n_cigar << 2);
     }
     uint8_t *opseq(op->data + b->core.l_qname + (op->n_cigar << 2)); // Pointer to the seq region of new data field.
-    for(tmp = 0; tmp < final_len >> 1; ++tmp) {
+    for(tmp = 0; tmp < final_len >> 1; ++tmp)
         opseq[tmp] = (bam_seqi(seq, ((tmp << 1) + n_start)) << 4) | (bam_seqi(seq, (tmp << 1) + n_start + 1));
-        assert(bam_seqi(opseq, tmp * 2) == bam_seqi(seq, (2 * tmp + n_start)));
-        assert(bam_seqi(opseq, tmp * 2 + 1) == bam_seqi(seq, (2 * tmp + n_start + 1)));
-    }
-#if 0
-    char tmpbuf[300];
-    for(tmp = 0; tmp < final_len; ++tmp) {
-        tmpbuf[tmp] = seq_nt16_str[bam_seqi(opseq, tmp)];
-    }
-    tmpbuf[tmp] = '\0';
-    assert(strcmp(tmpbuf, "ANNCNNNGNNNNTNNNNCNNGGNNNNNNNNNCNNNNCNNNNNNNNAAAANNTNNNAAAAAAAAAAGAGAGAGGGAGAGAGACTATACACAGGCACCACCACATTTGGCTAATTTTT") == 0);
-#endif
 
     // Copy in qual and all of aux.
     tmp = bam_get_l_aux(b);
