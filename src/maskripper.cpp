@@ -16,7 +16,6 @@ struct opts_t {
     uint8_t *data;
     uint32_t l_data:16;
     uint32_t m_data:16;
-    uint32_t n_cigar:8;
     uint32_t min_trimmed_len:8;
     ~opts_t() {if(data) free(data);}
     void resize(uint32_t new_min) {
@@ -35,7 +34,7 @@ static int trim_ns(bam1_t *b, void *data) {
     int tmp;
     uint8_t *const seq(bam_get_seq(b));
     uint32_t *const cigar(bam_get_cigar(b));
-    op->n_cigar = b->core.n_cigar;
+    //op->n_cigar = b->core.n_cigar;
     op->resize(b->l_data); // Make sure it's big enough to hold everything.
     memcpy(op->data, b->data, b->core.l_qname);
 
@@ -58,7 +57,7 @@ static int trim_ns(bam1_t *b, void *data) {
     if(n_end) {
         if((tmp = bam_cigar_oplen(cigar[b->core.n_cigar - 1]) - n_end) == 0) {
             LOG_DEBUG("Entire cigar operation is the softclip. Decrease the number of new cigar operations.\n");
-            --op->n_cigar;
+            --b->core.n_cigar;
         } else {
             LOG_DEBUG("Updating second cigar operation in-place.\n");
             cigar[b->core.n_cigar - 1] = bam_cigar_gen(tmp, BAM_CSOFT_CLIP);
@@ -67,24 +66,22 @@ static int trim_ns(bam1_t *b, void *data) {
 
     // Get new n_cigar.
     if((tmp = bam_cigar_oplen(*cigar) - n_start) == 0) {
-        --op->n_cigar;
-        memcpy(op->data + b->core.l_qname, cigar + 1, op->n_cigar << 2); // << 2 for 4 bit per cigar op
+        memcpy(op->data + b->core.l_qname, cigar + 1, (--b->core.n_cigar) << 2); // << 2 for 4 bit per cigar op
     } else {
         if(n_start) *cigar = bam_cigar_gen(tmp, BAM_CSOFT_CLIP);
-        memcpy(op->data + b->core.l_qname, cigar, op->n_cigar << 2);
+        memcpy(op->data + b->core.l_qname, cigar, b->core.n_cigar << 2);
     }
-    uint8_t *opseq(op->data + b->core.l_qname + (op->n_cigar << 2)); // Pointer to the seq region of new data field.
+    uint8_t *opseq(op->data + b->core.l_qname + (b->core.n_cigar << 2)); // Pointer to the seq region of new data field.
     for(tmp = 0; tmp < final_len >> 1; ++tmp)
         opseq[tmp] = (bam_seqi(seq, ((tmp << 1) + n_start)) << 4) | (bam_seqi(seq, (tmp << 1) + n_start + 1));
     if(final_len & 1)
         opseq[tmp] = (bam_seqi(seq, ((tmp << 1) + n_start)) << 4);
 
     // Copy in qual and all of aux.
-    tmp = bam_get_l_aux(b);
-    memcpy(opseq + ((final_len + 1) >> 1), bam_get_qual(b) + n_start, final_len + tmp);
+    //tmp = bam_get_l_aux(b);
+    //memcpy(opseq + ((final_len + 1) >> 1), bam_get_qual(b) + n_start, final_len + tmp);
     // Switch data strings
     std::swap(op->data, b->data);
-    b->core.n_cigar = op->n_cigar;
     //b->l_data = b->core.l_qname + (op->n_cigar << 2) + ((final_len + 1) >> 1) + final_len + tmp;
     b->core.l_qseq = final_len;
     memcpy(bam_get_aux(b), aux.data(), aux.size());
