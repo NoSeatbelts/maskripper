@@ -28,7 +28,6 @@ struct opts_t {
 };
 
 static int trim_ns(bam1_t *b, void *data) {
-    // Currently passes all reads to keep balanced pairs. TODO: rewrite for pairs of reads and filter if both fail.
     opts_t *op((opts_t *)data);
     assert(bam_aux_get(b, "PV"));
     std::vector<uint8_t> aux(bam_get_aux(b), bam_get_aux(b) + bam_get_l_aux(b));
@@ -79,6 +78,8 @@ static int trim_ns(bam1_t *b, void *data) {
         assert(bam_seqi(opseq, tmp * 2) == bam_seqi(seq, (2 * tmp + n_start)));
         assert(bam_seqi(opseq, tmp * 2 + 1) == bam_seqi(seq, (2 * tmp + n_start + 1)));
     }
+    if(final_len & 1)
+        opseq[tmp] = (bam_seqi(seq, ((tmp << 1) + n_start)) << 4);
 #if 0
     char tmpbuf[300];
     for(tmp = 0; tmp < final_len; ++tmp) {
