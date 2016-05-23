@@ -5,6 +5,7 @@ int usage(char **argv, int retcode=EXIT_FAILURE) {
     fprintf(stderr, "MASKRIPPER version %s.\n"
                     "Usage: maskripper <opts> in.bam out.bam\n"
                     "Flags:\n-m: Minimum trimmed read length. Default: 0.\n"
+                    "-n: Skip reads composed of all Ns. Default: False.\n"
                     "-l: output compression level. Default: 6.\n"
                     "-S: output in sam format.\n"
                     "-s: perform single-end analyisis. This option results in imbalanced pairs on paired-end data.\n"
@@ -17,6 +18,7 @@ struct opts_t {
     uint32_t l_data:16;
     uint32_t m_data:16;
     uint32_t min_trimmed_len:8;
+    uint32_t skip_all_ns:1;
     ~opts_t() {if(data) free(data);}
     void resize(uint32_t new_min) {
         if(new_min > m_data) {
@@ -43,7 +45,7 @@ static int trim_ns(bam1_t *b, void *data) {
     const int n_start(tmp);
 
     if(tmp == b->core.l_qseq - 1) // all bases are N -- garbage read
-         return 1; // Currently outputting to avoid 
+         return op->skip_all_ns;
 
     // Get #Ns at the end
     for(tmp = b->core.l_qseq - 1; bam_seqi(seq, tmp) == dlib::htseq::HTS_N; --tmp);
@@ -53,6 +55,7 @@ static int trim_ns(bam1_t *b, void *data) {
     const int final_len(b->core.l_qseq - n_end - n_start);
     if(final_len < op->min_trimmed_len) // Too short.
         return 1;
+    // Copy in qual and all of aux.
 
     if(n_end) {
         if((tmp = bam_cigar_oplen(cigar[b->core.n_cigar - 1]) - n_end) == 0) {
@@ -77,9 +80,8 @@ static int trim_ns(bam1_t *b, void *data) {
     if(final_len & 1)
         opseq[tmp] = (bam_seqi(seq, ((tmp << 1) + n_start)) << 4);
 
-    // Copy in qual and all of aux.
-    //tmp = bam_get_l_aux(b);
-    //memcpy(opseq + ((final_len + 1) >> 1), bam_get_qual(b) + n_start, final_len + tmp);
+    tmp = bam_get_l_aux(b);
+    memcpy(opseq + ((final_len + 1) >> 1), bam_get_qual(b) + n_start, final_len + tmp);
     // Switch data strings
     std::swap(op->data, b->data);
     //b->l_data = b->core.l_qname + (op->n_cigar << 2) + ((final_len + 1) >> 1) + final_len + tmp;
@@ -118,12 +120,13 @@ int main(int argc, char *argv[]) {
     int is_se{0};
     char out_mode[4] = "wb";
     opts_t opts{0};
-    while((c = getopt(argc, argv, "m:l:h?sS")) > -1) {
+    while((c = getopt(argc, argv, "m:l:h?sSn")) > -1) {
         switch(c) {
         case 'm': opts.min_trimmed_len = (uint32_t)atoi(optarg); break;
         case 'l': out_mode[2] = atoi(optarg) % 10 + '0'; break;
         case 's': is_se = 1; break;
         case 'S': sprintf(out_mode, "w"); break;
+        case 'n': opts.skip_all_ns = 1; break;
         case 'h': case '?': return usage(argv, EXIT_SUCCESS);
         }
     }
