@@ -138,10 +138,7 @@ int main(int argc, char *argv[]) {
 
     dlib::BamHandle inHandle(argv[optind]);
     dlib::BamHandle outHandle(argv[optind + 1], inHandle.header, out_mode);
-    if(is_se)
-        dlib::abstract_single_iter(inHandle.fp, inHandle.header, outHandle.fp,
-                                   &trim_ns, (void *)&opts);
-    else dlib::abstract_pair_iter(inHandle.fp, inHandle.header, outHandle.fp,
-                                  &pe_trim_ns, (void *)&opts);
+    is_se ? dlib::abstract_single_iter(inHandle.fp, inHandle.header, outHandle.fp, &trim_ns, (void *)&opts)
+          : dlib::abstract_pair_iter(inHandle.fp, inHandle.header, outHandle.fp, &pe_trim_ns, (void *)&opts);
     return EXIT_SUCCESS;
 }
