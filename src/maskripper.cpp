@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
     while((c = getopt(argc, argv, "m:l:h?sSn")) > -1) {
         switch(c) {
         case 'm': opts.min_trimmed_len = (uint32_t)atoi(optarg); break;
-        case 'l': out_mode[2] = atoi(optarg) % 10 + '0'; break;
+        case 'l': out_mode[2] = *optarg; break;
         case 's': is_se = 1; break;
         case 'S': sprintf(out_mode, "w"); break;
         case 'n': opts.skip_all_ns = 1; break;
