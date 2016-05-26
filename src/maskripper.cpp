@@ -31,7 +31,6 @@ struct opts_t {
 
 static int trim_ns(bam1_t *b, void *data) {
     opts_t *op((opts_t *)data);
-    assert(bam_aux_get(b, "PV"));
     std::vector<uint8_t> aux(bam_get_aux(b), bam_get_aux(b) + bam_get_l_aux(b));
     int tmp;
     uint8_t *const seq(bam_get_seq(b));
@@ -93,13 +92,17 @@ static int trim_ns(bam1_t *b, void *data) {
     if(n_start) bam_aux_append(b, "NS", 'i', sizeof(int), (uint8_t *)&n_start);
     const uint32_t *pvar = (uint32_t *)dlib::array_tag(b, "PV");
     tmp = b->core.flag & BAM_FREVERSE ? n_end: n_start;
-    std::vector<uint32_t>pvals(pvar + tmp, pvar + final_len + tmp);
-    bam_aux_del(b, (uint8_t *)(pvar) - 6);
+    if(pvar) {
+        std::vector<uint32_t>pvals(pvar + tmp, pvar + final_len + tmp);
+        bam_aux_del(b, (uint8_t *)(pvar) - 6);
+        dlib::bam_aux_array_append(b, "PV", 'I', sizeof(uint32_t), final_len, (uint8_t *)pvals.data());
+    }
     const uint32_t *fvar = (uint32_t *)dlib::array_tag(b, "FA");
-    std::vector<uint32_t>fvals(fvar + tmp, fvar + final_len + tmp);
-    bam_aux_del(b, (uint8_t *)(fvar) - 6);
-    dlib::bam_aux_array_append(b, "PV", 'I', sizeof(uint32_t), final_len, (uint8_t *)pvals.data());
-    dlib::bam_aux_array_append(b, "FA", 'I', sizeof(uint32_t), final_len, (uint8_t *)fvals.data());
+    if(fvar) {
+        std::vector<uint32_t>fvals(fvar + tmp, fvar + final_len + tmp);
+        bam_aux_del(b, (uint8_t *)(fvar) - 6);
+        dlib::bam_aux_array_append(b, "FA", 'I', sizeof(uint32_t), final_len, (uint8_t *)fvals.data());
+    }
     return 0;
 }
 
