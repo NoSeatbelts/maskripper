@@ -8,7 +8,7 @@ CXXSTD=c++11
 CSTD=gnu99
 CC=g++
 GIT_VERSION := $(shell git describe --abbrev=4 --always --dirty)
-FLAGS= -Wno-unused-function -Wunreachable-code -Wall -DMASKRIPPER_VERSION=\"$(GIT_VERSION)\" -std=$(CXXSTD) -pedantic
+FLAGS= -Wno-unused-result -Wno-unused-function -Wunreachable-code -Wall -DMASKRIPPER_VERSION=\"$(GIT_VERSION)\" -std=$(CXXSTD) -pedantic
 LD= -lm -lz -lpthread
 INCLUDE= -Ihtslib -I.
 LIB=
