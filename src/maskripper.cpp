@@ -83,21 +83,19 @@ static int trim_ns(bam1_t *b, void *data) {
     memcpy(opseq + ((final_len + 1) >> 1), bam_get_qual(b) + n_start, final_len + tmp);
     // Switch data strings
     std::swap(op->data, b->data);
-    //b->l_data = b->core.l_qname + (op->n_cigar << 2) + ((final_len + 1) >> 1) + final_len + tmp;
     b->core.l_qseq = final_len;
     memcpy(bam_get_aux(b), aux.data(), aux.size());
     b->l_data = (bam_get_aux(b) - b->data) + aux.size();
-    //trim_array_tags(b, n_start, n_end, final_len);
     if(n_end) bam_aux_append(b, "NE", 'i', sizeof(int), (uint8_t *)&n_end);
     if(n_start) bam_aux_append(b, "NS", 'i', sizeof(int), (uint8_t *)&n_start);
-    const uint32_t *pvar = (uint32_t *)dlib::array_tag(b, "PV");
+    const uint32_t *pvar((uint32_t *)dlib::array_tag(b, "PV"));
     tmp = b->core.flag & BAM_FREVERSE ? n_end: n_start;
     if(pvar) {
         std::vector<uint32_t>pvals(pvar + tmp, pvar + final_len + tmp);
         bam_aux_del(b, (uint8_t *)(pvar) - 6);
         dlib::bam_aux_array_append(b, "PV", 'I', sizeof(uint32_t), final_len, (uint8_t *)pvals.data());
     }
-    const uint32_t *fvar = (uint32_t *)dlib::array_tag(b, "FA");
+    const uint32_t *fvar((uint32_t *)dlib::array_tag(b, "FA"));
     if(fvar) {
         std::vector<uint32_t>fvals(fvar + tmp, fvar + final_len + tmp);
         bam_aux_del(b, (uint8_t *)(fvar) - 6);
@@ -108,7 +106,7 @@ static int trim_ns(bam1_t *b, void *data) {
 
 static int pe_trim_ns(bam1_t *b1, bam1_t *b2, void *aux)
 {
-    return trim_ns(b1, aux) && trim_ns(b2, aux);
+    return trim_ns(b1, aux) & trim_ns(b2, aux);
 }
 
 
