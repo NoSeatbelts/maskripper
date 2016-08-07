@@ -8,7 +8,7 @@ int usage(char **argv, int retcode=EXIT_FAILURE) {
                     "-n: Skip reads composed of all Ns. Default: False.\n"
                     "-l: output compression level. Default: 6.\n"
                     "-S: output in sam format.\n"
-                    "-s: perform single-end analyisis. This option results in imbalanced pairs on paired-end data.\n"
+                    "-s: perform single-end analysis. This option results in imbalanced pairs on paired-end data.\n"
                     "Use - for stdin or stdout.\n", MASKRIPPER_VERSION);
     return retcode;
 }
