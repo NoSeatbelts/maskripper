@@ -106,7 +106,7 @@ static int trim_ns(bam1_t *b, void *data) {
 
 static int pe_trim_ns(bam1_t *b1, bam1_t *b2, void *aux)
 {
-    return trim_ns(b1, aux) & trim_ns(b2, aux);
+    return trim_ns(b1, aux) | trim_ns(b2, aux);
 }
 
 
