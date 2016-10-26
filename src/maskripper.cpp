@@ -30,6 +30,7 @@ struct opts_t {
 };
 
 static int trim_ns(bam1_t *b, void *data) {
+    int ret = 0;
     opts_t *op((opts_t *)data);
     std::vector<uint8_t> aux(bam_get_aux(b), bam_get_aux(b) + bam_get_l_aux(b));
     int tmp;
@@ -44,7 +45,7 @@ static int trim_ns(bam1_t *b, void *data) {
     const int n_start(tmp);
 
     if(tmp == b->core.l_qseq - 1) // all bases are N -- garbage read
-         return op->skip_all_ns;
+         ret |= op->skip_all_ns;
 
     // Get #Ns at the end
     for(tmp = b->core.l_qseq - 1; bam_seqi(seq, tmp) == dlib::htseq::HTS_N; --tmp);
@@ -53,7 +54,7 @@ static int trim_ns(bam1_t *b, void *data) {
     // Get new length for read
     const int final_len(b->core.l_qseq - n_end - n_start);
     if(final_len < op->min_trimmed_len) // Too short.
-        return 1;
+        ret |= 1;
     // Copy in qual and all of aux.
 
     if(n_end) {
@@ -101,12 +102,12 @@ static int trim_ns(bam1_t *b, void *data) {
         bam_aux_del(b, (uint8_t *)(fvar) - 6);
         dlib::bam_aux_array_append(b, "FA", 'I', sizeof(uint32_t), final_len, (uint8_t *)fvals.data());
     }
-    return 0;
+    return ret;
 }
 
 static int pe_trim_ns(bam1_t *b1, bam1_t *b2, void *aux)
 {
-    return trim_ns(b1, aux) | trim_ns(b2, aux);
+    return trim_ns(b1, aux) & trim_ns(b2, aux);
 }
 
 
