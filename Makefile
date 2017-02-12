@@ -1,6 +1,6 @@
 ######################################
 # Makefile written by Daniel Baker   #
-#     d.nephi.baker@gmail.com       #
+#          dnb@cs.jhu.edu            #
 ######################################
 
 
