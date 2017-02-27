@@ -20,6 +20,7 @@ struct opts_t {
     uint32_t min_trimmed_len:8;
     uint32_t skip_all_ns:1;
     ~opts_t() {if(data) free(data);}
+    opts_t(): data(nullptr), l_data(0), m_data(0), min_trimmed_len(0), skip_all_ns(0) {}
     void resize(uint32_t new_min) {
         if(new_min > m_data) {
             m_data = new_min;
@@ -121,7 +122,7 @@ int main(int argc, char *argv[]) {
     int c;
     int is_se{0};
     char out_mode[4] = "wb";
-    opts_t opts{0};
+    opts_t opts;
     while((c = getopt(argc, argv, "m:l:h?sSn")) > -1) {
         switch(c) {
         case 'm': opts.min_trimmed_len = (uint32_t)atoi(optarg); break;
