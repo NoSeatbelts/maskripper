@@ -6,7 +6,7 @@
 
 CXXSTD=c++11
 CSTD=gnu99
-CC=g++
+CXX=g++
 GIT_VERSION := $(shell git describe --abbrev=4 --always --dirty)
 FLAGS= -Wno-unused-result -Wno-unused-function -Wunreachable-code -Wall -DMASKRIPPER_VERSION=\"$(GIT_VERSION)\" -std=$(CXXSTD) -pedantic
 LD= -lm -lz -lpthread
@@ -41,18 +41,18 @@ install: all
 	$(INSTALL) maskripper_db $(bindir)/$(binprefix)maskripper_db
 
 %.o: %.cpp
-	$(CC) -c $(FLAGS) $(INCLUDE) $(LIB) $(LD) $(OPT_FLAGS) $< -o $@
+	$(CXX) -c $(FLAGS) $(INCLUDE) $(LIB) $(LD) $(OPT_FLAGS) $< -o $@
 
 %.dbo: %.cpp
-	$(CC) -c $(FLAGS) $(INCLUDE) $(LIB) $(LD) $(DB_FLAGS) $< -o $@
+	$(CXX) -c $(FLAGS) $(INCLUDE) $(LIB) $(LD) $(DB_FLAGS) $< -o $@
 
 
 libhts.a:
 	+cd htslib && echo "/* Empty config.h */" >> config.h && make -j $(THREADS) && cp libhts.a ../
 maskripper_db: $(D_OBJS) libhts.a
-	$(CC) $(FLAGS) $(INCLUDE) $(LIB) $(LD) $(DB_FLAGS) $(D_OBJS) libhts.a -o maskripper_db
+	$(CXX) $(FLAGS) $(INCLUDE) $(LIB) $(LD) $(DB_FLAGS) $(D_OBJS) libhts.a -o maskripper_db
 maskripper: $(OBJS) libhts.a
-	$(CC) $(FLAGS) $(INCLUDE) $(LIB) $(LD) $(OPT_FLAGS) $(OBJS) libhts.a -o maskripper
+	$(CXX) $(FLAGS) $(INCLUDE) $(LIB) $(LD) $(OPT_FLAGS) $(OBJS) libhts.a -o maskripper
 
 clean: mostlyclean
 		cd htslib && make clean && cd ..
