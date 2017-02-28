@@ -53,7 +53,8 @@ static int trim_ns(bam1_t *b, void *data) {
     const int n_end(b->core.l_qseq - 1 - tmp);
 
     // Get new length for read
-    const int final_len(b->core.l_qseq - n_end - n_start);
+    int final_len(b->core.l_qseq - n_end - n_start);
+    if(final_len < 0) final_len = 0;
     if(final_len < op->min_trimmed_len) // Too short.
         ret |= 1;
     // Copy in qual and all of aux.
