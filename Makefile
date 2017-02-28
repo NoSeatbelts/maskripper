@@ -50,9 +50,9 @@ install: all
 libhts.a:
 	+cd htslib && echo "/* Empty config.h */" >> config.h && make -j $(THREADS) && cp libhts.a ../
 maskripper_db: $(D_OBJS) libhts.a
-	$(CXX) $(FLAGS) $(INCLUDE) $(LIB) $(LD) $(DB_FLAGS) $(D_OBJS) libhts.a -o maskripper_db
+	$(CXX) $(FLAGS) $(INCLUDE) $(LIB) $(DB_FLAGS) $(D_OBJS) libhts.a $(LD) -o maskripper_db
 maskripper: $(OBJS) libhts.a
-	$(CXX) $(FLAGS) $(INCLUDE) $(LIB) $(LD) $(OPT_FLAGS) $(OBJS) libhts.a -o maskripper
+	$(CXX) $(FLAGS) $(INCLUDE) $(LIB) $(OPT_FLAGS) $(OBJS) libhts.a $(LD) -o maskripper
 
 clean: mostlyclean
 		cd htslib && make clean && cd ..
