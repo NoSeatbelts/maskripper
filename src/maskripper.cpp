@@ -2,7 +2,7 @@
 #include "dlib/bam_util.h"
 
 int usage(char **argv, int retcode=EXIT_FAILURE) {
-    fprintf(stderr, "MASKRIPPER version %s.\n"
+    fprintf(stderr, "MASKRIPPER version %s.\n NOTE: for paired-end usage, the bam must be name-sorted.\n"
                     "Usage: maskripper <opts> in.bam out.bam\n"
                     "Flags:\n-m: Minimum trimmed read length. Default: 0.\n"
                     "-n: Skip reads composed of all Ns. Default: False.\n"
@@ -116,9 +116,6 @@ static int pe_trim_ns(bam1_t *b1, bam1_t *b2, void *aux)
 int main(int argc, char *argv[]) {
     if(argc < 3)
         return usage(argv);
-
-    if(strcmp(argv[1], "--help") == 0)
-        return usage(argv, EXIT_SUCCESS);
 
     int c;
     int is_se{0};
